@@ -320,14 +320,21 @@ test.describe("Debugger Tools - Live Widget Updates", () => {
       await navigateToResourcesAndSelectWeather(page);
 
       // Open props popover and verify preset is available
-      await page.getByTestId("debugger-props-button").click();
-      await expect(page.getByTestId("debugger-props-popover")).toBeVisible();
+      const popover = page.getByTestId("debugger-props-popover");
+      const isAlreadyOpen = await popover.isVisible().catch(() => false);
+      if (!isAlreadyOpen) {
+        await page.getByTestId("debugger-props-button").click();
+      }
+      await expect(popover).toBeVisible();
 
       // Find the preset by looking for a button containing "Berlin Weather"
       const berlinPresetButton = page.getByRole("button", {
         name: "Berlin Weather",
       });
       await expect(berlinPresetButton).toBeVisible();
+
+      // Wait for popover to stabilize (resource data loading can cause re-renders)
+      await page.waitForTimeout(500);
 
       // Click the preset to apply it
       await berlinPresetButton.click();

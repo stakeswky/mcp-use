@@ -266,12 +266,13 @@ export async function navigateToResourcesAndSelectWeather(
     .click();
   await expect(page.getByRole("heading", { name: "Resources" })).toBeVisible();
   await page.getByTestId("resource-item-weather-display").click();
-  // Widget requires props - wait for props wall text (iframe only appears after props are set)
-  await expect(
-    page.getByText(
-      "This widget requires props, set or generate them in the props debugger"
-    )
-  ).toBeVisible({ timeout: 5000 });
+  // Wait for either the "requires props" message (no preset saved)
+  // or the widget iframe (preset already applied from localStorage after page refresh)
+  const propsWall = page.getByText(
+    "This widget requires props, set or generate them in the props debugger"
+  );
+  const widgetFrame = page.locator('iframe[title*="weather-display"]');
+  await expect(propsWall.or(widgetFrame)).toBeVisible({ timeout: 5000 });
 }
 
 /**
@@ -299,9 +300,14 @@ export async function openPropsDialog(page: Page): Promise<void> {
       ? resourcePreview.getByTestId("debugger-props-button")
       : page.getByTestId("debugger-props-button");
 
-  await propsButton.click();
-  await expect(page.getByTestId("debugger-props-popover")).toBeVisible();
-  // Wait for Create Preset button to be stable (avoids "element was detached" race)
+  // The popover may already be auto-opened when props are required (missingProps=true).
+  // Clicking the button would toggle it closed, so only click if the popover is NOT visible.
+  const popover = page.getByTestId("debugger-props-popover");
+  const isAlreadyOpen = await popover.isVisible().catch(() => false);
+  if (!isAlreadyOpen) {
+    await propsButton.click();
+  }
+  await expect(popover).toBeVisible();
   const createPreset = page.getByTestId("debugger-props-create-preset");
   await expect(createPreset).toBeVisible();
   await createPreset.click();
